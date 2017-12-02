@@ -1,5 +1,8 @@
-package directory_explorer;
+package a2;
 
 public enum FileType {
-	FILE, DIRECTORY
+
+	IMAGE, DIRECTORY
 }
+
+
