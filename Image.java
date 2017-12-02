@@ -1,4 +1,4 @@
-package a2;
+package photo_renamer;
 
 import java.io.File;
 import java.io.IOException;
@@ -6,6 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Image extends TreeNode{
 	
@@ -17,26 +19,8 @@ public class Image extends TreeNode{
 	private String ext; 
 	private ArrayList<String> tags;
 	private File imageFile; 
-
-	/**
-	 * For Deserialized images
-	 * @param file
-	 * @param name
-	 * @param tags
-	 * @param nameLogs
-	 * @param parent
-	 * @param ext
-	 */
-	public Image(File file, String name, ArrayList<String> tags, ArrayList<String[]> nameLogs, TreeNode parent, String ext) {
-		super(file, name,  FileType.IMAGE,parent, nameLogs, null);
-		this.originalName = name;
-		this.tags = tags;
-		this.putTimestamp(this.originalName, "INITALIZED " +this.originalName);
-		this.ext = ext;
-		this.imageFile  = file;
-		
-		
-	}
+	private Set<String> previousNames;
+	
 	/**
 	 * For newly created 
 	 * @param file
@@ -48,10 +32,11 @@ public class Image extends TreeNode{
 	public Image(File file, String name, FileType type, TreeNode parent, String ext) {
 		super(file, name,type, parent, null);
 		this.originalName = name;
-		this.putTimestamp(this.originalName, "INITIALIZED "+this.originalName);
 		this.ext = ext;
 		this.imageFile  = file;
 		this.tags = new ArrayList<String>();
+		this.previousNames = new HashSet<String>();
+		this.setName(name, "INITIALIZED "+ name);
 	}
 	
 	/**
@@ -117,12 +102,13 @@ public class Image extends TreeNode{
 			Files.move(source, newPath);
 			
 			this.imageFile = new File(newPath.toString());
-			this.filePath = newPath.toString();
+			this.setFilePath(newPath.toString());
 		} catch (IOException e) {
 			System.out.println("Oops, we can't change " + super.getName() + " to " + name);
 		}
 		super.setName(name);
 		this.putTimestamp(name, changeDescription);
+		this.previousNames.add(name);
 		
 	}
 
@@ -135,11 +121,15 @@ public class Image extends TreeNode{
 		if (this.tags.contains(tag)) {
 			throw new TagExistsException("This image already contains the tag: @" + tag + ", please select another tag.");
 		}
-		
+		// Add the rag to the list of tags
 		this.tags.add(tag);
-		String currentName = super.getName();
+		
+		// Add the tag to the name, before the extension
+		String currentName = this.getName();
 		String[] nameExt = currentName.split(this.ext);
 		String newName = nameExt[0] + " @" + tag + this.ext ;
+		
+		// Set the name with the change
 		this.setName(newName, "ADD "+ tag);
 	}
 	
@@ -149,31 +139,38 @@ public class Image extends TreeNode{
 	 */
 	public void deleteTag(String tagName) {
 		if (this.tags.contains(tagName)) {
+			// Delete the tag from the list of tags
 			this.tags.remove(tagName);
-			String currentName = super.getName();
+			
+			// Get the current name, without the extension
+			String currentName = this.getName();
 			String[] nameExt = currentName.split(this.ext);
+			
+			// Get the original name with the extension
 			String extensionlessName = this.originalName.split(this.ext)[0];
+			
+			// The starting point of our new name
 			String newName = extensionlessName;
 			String[] existingTags = (nameExt[0].split(" @"));
+			
 			for (String name: existingTags){
 				if ((!name.equals(tagName) && (!name.equals(extensionlessName)))){
 					newName += " @" + name;
 				}
-			
 			}
 			this.setName(newName + this.ext, "DELETE "+ tagName);
 		}
-	}	
+	}
+	
 	
 	/**
 	 * Change then name to the selected old name
 	 * @param name
 	 */
 	public void chooseFromOldName(String name) throws NonExistentNameException{
-		String[][] nestedList = this.nameLog.toArray(new String[0][0]);
 		boolean found = false;
-		for (String[] names: nestedList){
-			if (names[1].equals(name)){
+		for (String names: this.previousNames){
+			if (name.equals(names)){
 				String description = "NAME CHANGED FROM : " + this.getName() + " -> " + name;
 				this.setName(name, description);
 				found = true;
@@ -184,6 +181,13 @@ public class Image extends TreeNode{
 	  if (!found){
 		throw new NonExistentNameException ("Name does not exist");
 	}
+	}
+	
+	public Set<String> getPreviousNames() {
+		return previousNames;
+	}
+	public void setPreviousNames(Set<String> previousNames) {
+		this.previousNames = previousNames;
 	}
 }
 

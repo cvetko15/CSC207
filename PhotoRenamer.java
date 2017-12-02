@@ -1,535 +1,710 @@
-package a2;
+package photo_renamer;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
+import java.awt.BorderLayout;
+import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInput;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 
+
+import javax.imageio.ImageIO;
+import javax.swing.AbstractButton;
+import javax.swing.DefaultListModel;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.WindowConstants;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+
+
+import java.awt.Component;
+	
+/**
+ * ImageExplorer class is a GUI that allows users to edit and explore images 
+ * and directories. 
+ * ImageExploer uses ActionsListeners which is an implementation of 
+ * an Observer design pattern. 
+ */
 public class PhotoRenamer {
-
-	protected ArrayList<String> tagList; 
-	protected static File tagFile;
-	private static File logFile;
-	private HashMap<String, TreeNode> pathToNode;
-	public PhotoRenamer() throws ClassNotFoundException, IOException{
+		private final JFrame photoRenamer; 
 		
-		// Serialize/
-		tagFile = new File("tagList.ser");
-		logFile = new File("Log.ser");
-		this.tagList = new ArrayList<String>();
-		this.pathToNode = new HashMap<String, TreeNode>();
+		private final JLabel directoryLabel;
+		private final JPanel taggingPanel;
+		private final JPanel navigatingPanel;
+		private final JPanel imagePanel;
 		
-        if (tagFile.exists()) {
-        	this.readFromTagsFile(tagFile.getPath());
-        } else if (!tagFile.exists()){
-            tagFile.createNewFile();
-        }
-        
-        if (logFile.exists()) {
-        	 this.readLogsFromFile(logFile.getPath());
-        } else {
-             logFile.createNewFile();
-        }
-	}
-	/**
-	 * Return an array list of tags
-	 * @return List of tags
-	 */
-	public  ArrayList<String> getTagList() {
-		return this.tagList;
-	}
+		private final JButton openButton;
+		private JButton addButton; 
+		private JButton deleteButton; 
+		private final JButton chooseOldNameButton;
+		private final JButton searchButton;
+		private final JButton mostTagsButton;
+		private final JButton mostCommonTagsButton;
+		private final JButton historyButton;
+		private final JButton revertButton;
+		
+		private final JTextArea textArea;
+		private final JScrollPane scrollPane;
+		private JScrollPane listScroll;
+		private ImageIcon mainIcon; 
+		private JLabel imageLabel;
+		private final JTextField tagField; 
+		private JList<String> folderList;
+		private Directory currentDir;
+		
+		private PhotoSystem pr;
+		private HashMap<String, TreeNode> nodeMap;
+		private TreeNode selectedNode;
 
-	/**
-	 * Set the this.tagList
-	 * @param this.tagList
-	 * 				The list of tags
-	 */
-	public  void setTagList(ArrayList<String> tagList) {
-		this.tagList = tagList;
-	}
+		private JButton instructionButton;
 
-	public Directory buildTree (File file){
-			String path = file.getPath();
+		private JButton viewTagsButton;
+
+		private String currentPath;
+	
+		public PhotoRenamer (){ 
+			
+			this.nodeMap = new HashMap<>();
+			this.selectedNode = null;
+			pr = PhotoSystem.getInstance();
+			this.photoRenamer = new JFrame("PhotoRenamer");
+			directoryLabel = new JLabel ("Select a directory");
+			photoRenamer.setPreferredSize(new Dimension(1200, 1000));
+			taggingPanel = new JPanel();
+			navigatingPanel = new JPanel();
+			
+			BorderLayout imageLayout = new BorderLayout();
+			imagePanel = new JPanel();
+			imagePanel.setLayout(imageLayout);
+			imagePanel.setPreferredSize(new Dimension(700, 300));
+			
+			//The open new directory button
+			openButton = new JButton("Choose Directory");
+			openButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					chooseFile();
+				}
+			});
+			
+			// The add new tag to image button
+			addButton = new JButton("Add Tag");
+			addButton.setEnabled(false);
+			addButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					addTagtoImage();
+				}
+			});
+			
+			//The delete tag from image button 
+			deleteButton = new JButton("Delete Tag");	
+			deleteButton.setEnabled(false);
+			deleteButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					deleteTagFromImage();
+				}
+			});
+			
+			chooseOldNameButton = new JButton("Choose Old Name for Image");
+			chooseOldNameButton.setEnabled(false);
+			chooseOldNameButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					chooseOldName();
+				}
+			});
+			
+			// Gives the user instructions on how to navigate through the program
+			instructionButton = new JButton("Instructions");
+			instructionButton.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					displayWelcomeMessage();
+							
+				}
+			});
+			
+			// The search for image button
+			searchButton = new JButton("Search Images");
+			searchButton.setEnabled(false);
+			searchButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					searchForImage();
+				}
+			});
+			
+			// Button to find image with most tags
+			mostTagsButton = new JButton("Find image with most tags");
+			mostTagsButton.setEnabled(false);
+			mostTagsButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					getMostTagged();
+				}
+			});
+			
+			// Button to find most commonly used tag
+			mostCommonTagsButton = new JButton("Find most commonly used tag");
+			mostCommonTagsButton.setEnabled(false);
+			mostCommonTagsButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					getMostCommonTag();
+				}
+			});
+			
+			// Button to get the history of changes 
+			historyButton = new JButton("Get Selected File's Changes");
+			historyButton.setEnabled(false);
+			historyButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					getHistoryofImages();
+				}
+			});
+			
+			// Button to revert changes 
+			revertButton = new JButton("Revert changes");
+			revertButton.setEnabled(false);
+			revertButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					revertChanges();
+				}
+			});
+			
+			// Button to revert changes 
+			viewTagsButton = new JButton("View Master Tag List");
+			viewTagsButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					textArea.setText(pr.getTagList().toString());
+				}
+			});
+			
+			textArea = new JTextArea(30, 5);
+			displayWelcomeMessage();
+			scrollPane = new JScrollPane(this.textArea);
+			
+			tagField = new JTextField();
+			// Add a KeyListener so that when the user inputs two tags separated by a comma,
+			// it means that they add adding/delete many tags at a time
+			tagField.addKeyListener(new KeyAdapter() {
+				@Override
+				public void keyPressed(KeyEvent e) {
+					if (e.getKeyCode() == KeyEvent.VK_COMMA){
+						deleteButton.setText("Delete Many Tags");
+						addButton.setText("Add Many Tags");
+					}else if (e.getKeyCode() == KeyEvent.VK_BACK_SPACE){
+						if (!tagField.getText().contains(",")){
+							deleteButton.setText("Delete Tag");
+							addButton.setText("Add Tag");
+						}
+					}
+				}
+				
+			});
+			
+		
+			BufferedImage img = null;
+			this.currentPath = new File("").getAbsolutePath();
+			if (!currentPath.endsWith("/src")) {
+				currentPath += "/src";
+			}
+			
 			try {
-				this.readLogsFromFile(logFile.getPath());
-			} catch (ClassNotFoundException e) {
-				e.printStackTrace();
-			}
-			Directory rootNode = null;
-			if (this.pathToNode.containsKey(path)) {
-				rootNode = (Directory) this.pathToNode.get(path);
-			}else {
-				rootNode = new Directory(file, file.getName(), FileType.DIRECTORY, null);
-				this.pathToNode.put(path, rootNode);
-			}
-			buildTreeHelper(file, rootNode);
-			// Serialize this log now
-			this.saveMapToFile(logFile.getPath());
-			return rootNode;
-	}
-	
-	/**
-	 * Build the tree of the given file
-	 * @param file
-	 * 			The file of the node
-	 * @param curr
-	 * 			The node we're building off of
-	 */
-	public void buildTreeHelper(File file, TreeNode curr) {
-		
-		// use the file.listFiles() method to get all the files/directories inside file
-		File [] list = file.listFiles();
-		
-		// iterate though the files/directories inside file
-		// if it is an Image, add it to the tree; if it is a directory recurse though it
-		for(File child: list){
-			String path = child.getPath();
-			if (child.isDirectory()){
-				// Deserialize path to node hashmap
-				try {
-					this.readLogsFromFile(logFile.getPath());
-				} catch (ClassNotFoundException e) {
-					e.printStackTrace();
-				}
-				Directory childNode = null;
-				if (this.pathToNode.containsKey(path)) {
-					childNode = (Directory) this.pathToNode.get(child.getPath());
-				}else {
-					childNode = new Directory(child, child.getName(), FileType.DIRECTORY , curr);
-					this.pathToNode.put(path, childNode);
-					curr.addChild(childNode.filePath, childNode);
-				}
+			 img =  ImageIO.read(new File(currentPath +  "/Images/image.png" ) );//new File(new File("").getAbsolutePath() + "/src/Images/image.png"));
+			 
+			} catch  (IOException e){
 				
-				buildTreeHelper(child, childNode);
-				this.pathToNode.put(curr.file.getPath(), curr);
-				// Serialize this log now
-				this.saveMapToFile(logFile.getPath());
-				
-			}else{		
-				String extension = fileIsImage(child.getName());
-				if (extension != null){
-					Image childNode = null;
-					if (this.pathToNode.containsKey(path)) {
-						childNode = (Image) this.pathToNode.get(child.getPath());
-						
-					}else {
-						childNode = new Image(child, child.getName(), FileType.IMAGE , curr, extension);
-						this.pathToNode.put(path, childNode);
-						curr.addChild(childNode.filePath, childNode);
-						
-					}
-					// Serialize this log now
-					this.pathToNode.put(curr.file.getPath(), curr);
-					this.saveMapToFile(logFile.getPath());
-					
-				}
-				
-					}
-			}
-		}
-	
-	/**
-	 * Add the given Tag to the image and directory logs
-	 * @param img
-	 * 			Image to be tagged
-	 * @param tag
-	 * 			The tag to be added
-	 * @param dir
-	 * 			The directory to which this image belongs to
-	 */
-	
-	public  void addImageTag(Image img, String tag, Directory dir) {
-		try {
-			// Replace the paths and add a new tag
-			
-			((Directory) img.parent).addImageTag(img, tag);
-			if (!this.tagList.contains(tag) ) {
-				this.tagList.add(tag);
-				this.saveTagsToFile(tagFile.getPath());
 			}
 			
-			String path = img.filePath;
-						
-			img.addTag(tag);
-			String newPath = img.filePath;
+			mainIcon = new ImageIcon(img);
+			imageLabel = new JLabel("Your Image", mainIcon, JLabel.CENTER);
 			
-			this.pathToNode.remove(path);
-			this.pathToNode.put(newPath, img);
-			this.pathToNode.put(img.parent.filePath, img.parent);
-			
-			this.saveMapToFile(logFile.getPath());
-			
-		} catch (TagExistsException e) {
-			System.out.println(e.getMessage());
-		}
-	}
-	
-	/**
-	 * Delete the given Tag from all images in the directory dir, keep track using the image and directory logs
-	 * 
-	 * @param tag
-	 * 			The tag to be deleted
-	 * @param dir
-	 * 			The directory to which this image belongs to
-	 */
-	public  void deleteFromAllImages(String tag, Directory dir) {
-		ArrayList<Image> Alist = dir.getListofTags().get(tag);
-		if (Alist != null) {
-			Image[] images = Alist.toArray(new Image[0]);
-			for (Image img: images) {
-				
-				((Directory) img.parent).deleteImageTag(img, tag);
-				
-				String path = img.filePath;
-				
-				img.deleteTag(tag);
-				
-				String newPath = img.filePath;
-				
-				this.pathToNode.remove(path);
-				this.pathToNode.put(newPath, img);
-				this.pathToNode.put(img.parent.filePath, img.parent);
-				
-				this.saveMapToFile(logFile.getPath());
-				
-			}
-		}
-	}
-	/**
-	 * Add the given Tag to the image and directory logs
-	 * @param img
-	 * 			Image to be edited
-	 * @param tag
-	 * 			The tag to be deleted
-	 * @param dir
-	 * 			The directory to which this image belongs to
-	 */
-	public  void deleteImageTag(Image img, String tag, Directory dir) {
-		
-		// Replace the paths and delete a new tag
-		
-		((Directory) img.parent).deleteImageTag(img,tag);
-		
-		String path = img.filePath;
-		
-		img.deleteTag(tag);
-		
-		String newPath = img.filePath;
-		
-		this.pathToNode.remove(path);
-		this.pathToNode.put(newPath, img);
-		this.pathToNode.put(img.parent.filePath, img.parent);
-		
-		this.saveMapToFile(logFile.getPath());
-		
-	}
-	
-	/**
-	 * Search for the given image by Tag
-	 * @param tag
-	 * 			Tag to be searched by
-	 * @param dir
-	 * 			The directory to which this image belongs to
-	 * @return The images that contain this tag
-	 */
-	public  ArrayList<Image> searchImagesbyTag(String tag, Directory dir) {
-		return dir.searchImagesbyTag(tag);
-	}
-	
-	/**
-	 * Find the image with the most tags
-	 * @param current
-	 * @return The image with the most tags
-	 */
-	public  Image mostTags(TreeNode current) {
-		TreeNode newCurr = null;
-		if (current.isImage()) {
-			newCurr = (Image) mostTagsHelper(current.getParent(), (Image)current);
-		}
-		else {
-			for (TreeNode child: current.getChildren()) {
-				newCurr = mostTags(child);
-			}
-		}
-		return (Image) newCurr;
-		
-	
-	}
-	
-	/**
-	 * Helper function for finding the image with the most tags
-	 * @param curr 
-	 * 			Current node
-	 * @param max 
-	 * 			Maximum number of tags an image has
-	 * @return The image with the most tags
-	 */
-	private static Image mostTagsHelper(TreeNode curr, Image max) {
-		Image newMax = max;
-		if (curr.isImage()) {
-			if (((Image) curr).getTags().size() >= max.getTags().size()) {
-				newMax = (Image) curr;
-			}
-		}
-		else {
-			Collection<TreeNode> children = curr.getChildren();
-			for (TreeNode child: children) {
-				max = mostTagsHelper(child, max);
-			}
-			
-			newMax = max;	
-		}
-		return (Image) newMax;	
-	}
-	
-	/**
-	 * Revert all the changes up until a certain point
-	 * @param dir
-	 * 			Directory to revert changes from
-	 * @param begin
-	 * 			The time to which we will revert the changes
-	 */
-	
-	public  void revertChanges(Directory dir, Integer begin){
-		
-		String[][] log = dir.getnameLog().toArray(new String[0] [0]);
-		int end = log.length - 1;
+			folderList = new JList<String>(new DefaultListModel<String>());
+			folderList.setPreferredSize(new Dimension(200, 400));
+			folderList.addListSelectionListener(new ListSelectionListener() {
 
-		if ( begin <= end) {
-			while (end >= begin) {
+				@Override
+				public void valueChanged(ListSelectionEvent arg0) {
+					chooseFromList(folderList.getSelectedValue());
+										
+				}
 				
-				String[] nestedList = log[end];
-				String change = nestedList[2];
-				String ext = PhotoRenamer.fileIsImage(nestedList[1]);
-				String original = new String();
-				if (!nestedList[1].contains(" @")){
-					original = nestedList[1];
+			});
+			listScroll = new JScrollPane(folderList);
+			
+			navigatingPanel.add(openButton);
+			navigatingPanel.add(searchButton);
+			navigatingPanel.add(mostTagsButton);
+			navigatingPanel.add(mostCommonTagsButton);
+			navigatingPanel.add(historyButton);
+			navigatingPanel.add(revertButton);
+			
+			
+			
+			// Format text box
+			tagField.setPreferredSize(new Dimension(200, 30));
+			taggingPanel.add(tagField);
+			taggingPanel.add(deleteButton);
+			taggingPanel.add(addButton);
+			taggingPanel.add(chooseOldNameButton);
+			taggingPanel.add(instructionButton);
+			taggingPanel.add(viewTagsButton);
+
+			
+			//Set the position of the text, relative to the icon:
+			imageLabel.setVerticalTextPosition(JLabel.BOTTOM);
+			imageLabel.setHorizontalTextPosition(JLabel.CENTER);
+			
+		
+			imagePanel.add(imageLabel, BorderLayout.CENTER);
+			imagePanel.add(folderList, BorderLayout.WEST);
+			
+			// The directory choosing button.
+			
+			openButton.setVerticalTextPosition(AbstractButton.CENTER);
+			openButton.setHorizontalTextPosition(AbstractButton.LEADING); 
+			openButton.setMnemonic(KeyEvent.VK_D);
+			openButton.setActionCommand("disable");
+
+			
+			
+			photoRenamer.add(imagePanel, BorderLayout.EAST);
+			photoRenamer.add(navigatingPanel, BorderLayout.SOUTH);
+			photoRenamer.add(taggingPanel, BorderLayout.NORTH);
+			
+			
+			
+			// Set initial current directory to null, the directory that user chooses becomes new currentDir
+			this.currentDir = null;		
+			
+			Container c = photoRenamer.getContentPane();
+			c.add(directoryLabel, BorderLayout.CENTER);
+			c.add(scrollPane, BorderLayout.CENTER);
+			c.add(listScroll, BorderLayout.WEST);
+
+
+		}
+	
+		
+		/**
+		 * Get the current directory that the program is working with. 
+		 * @return current Directory
+		 */
+		public Directory getCurrentDir() {
+			return currentDir;
+		}
+
+
+		/**
+		 * Set the current directory that the program is working with.
+		 * @param currentDir
+		 */
+		public void setCurrentDir(Directory currentDir) {
+			this.currentDir = currentDir;
+		}
+
+
+		/**
+		 * Update the thumbnail of the picture to display the image
+		 * every time the user chooses an image. If it is a directory, display 
+		 * a generic image of a directory. 
+		 */
+		private void updateIcon() {
+			
+			// Default Image
+			BufferedImage img = null;
+			String fileImgName =  this.currentPath + "/Images/image.png";
+			String fileName = "image.png";
+			
+			// Selected Image or Directory
+			if (this.selectedNode != null) {
+				fileName = this.selectedNode.getName();
+				
+				//Directory's image
+				if (this.selectedNode.getFile().isDirectory()) {
+					if (this.selectedNode.getChildren().isEmpty()) {
+						fileImgName =  this.currentPath +  "/Images/folder.png";
+					}
+					else {
+						fileImgName =  this.currentPath +  "/Images/fullFolder.png";
+				}
+				
+				// Selected Image
+				} else {
+					fileImgName = this.selectedNode.getFilePath();
+				}
+			try {
+				img = ImageIO.read(new File(fileImgName));
+			} catch  (IOException e){
+			}
+			
+			this.mainIcon.setImage(img.getScaledInstance(320, 320, BufferedImage.SCALE_DEFAULT));
+			this.imageLabel.setText(fileName); 
+			
+			}
+		}
+		
+		
+		/**
+		 * Set the file that the user has chosen to work with as the currently
+		 * selected file. If it is an image, enable image commands. 
+		 * @param selected
+		 * 		The currently selected TreeNode
+		 */
+		private void chooseFromList(String selected) {
+			Component[] imageCommands = taggingPanel.getComponents();
+			for (Component comp : imageCommands) {
+				comp.setEnabled(true);
+			}
+			this.selectedNode = this.nodeMap.get(selected);
+			if ((this.selectedNode == null) || (!this.selectedNode.isImage())){
+				this.modifyImageButtons();
+			}
+			else{
+				if (tagField.getText().contains(",")){
+					deleteButton.setText("Delete Many Tags");
 				}
 				else{
-					original = nestedList[1].split(" @")[0] + ext;
+				deleteButton.setText("Delete Tag");
 				}
-				Image imgNode = (Image) dir.findChildReverted(original, nestedList[3]);
-				// Added
-				
-				if (change.startsWith("A")) {
-					String newTag = change.split(" ")[1];
-					deleteImageTag(imgNode, newTag, dir);
+				addButton.setEnabled(true); // Only add tags to images
+				revertButton.setEnabled(false); // Only revert changes of a directory
+			}
+			updateIcon();
+		}
+		
+		/**
+		 * Modify the buttons when dealing with a directory
+		 */
+		private void modifyImageButtons() {
+			this.textArea.setText("Please select a file");
+			deleteButton.setText("Delete Tag from All Directory Images");
+			addButton.setEnabled(false);
+			chooseOldNameButton.setEnabled(false);
+			revertButton.setEnabled(true);
+		}
+		
+		/**
+		 * Use the currently selected directory, and build a tree to include 
+		 * all the directories children. 
+		 */
+		private void chooseFile(){ 
+			JFileChooser fileChooser = new JFileChooser();
+			fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+			int returnVal = fileChooser.showOpenDialog(photoRenamer.getContentPane());
+
+			if (returnVal == JFileChooser.APPROVE_OPTION) {
+				File file = fileChooser.getSelectedFile();
+				if (file.exists()  && file.isDirectory()) {
+					directoryLabel.setText("Selected File" + file.getAbsolutePath());
+					// Display a temporary message while the directory is
+					// traversed.
+					this.textArea.setText("Building file tree...");
+
+					// Make the root.
+					TreeNode fileTree = pr.buildTree(file);
+										
+					// Build the string representation and put it into the text
+					// area.
+					this.currentDir = (Directory) fileTree;
+
+					updateString();
+					textArea.setText("Now you can edit and navigate the images in " + fileTree.getName());
 					
+					Component[] dirComponents =  navigatingPanel.getComponents();
+					for (Component comp : dirComponents) {
+						comp.setEnabled(true);
+					}
 				}
 				
-				if (change.startsWith("D")) {
-					String newTag = change.split(" ")[1];
-					addImageTag(imgNode, newTag, dir);
+			} else {
+				directoryLabel.setText("No Path Selected");
+			}
+		}
+		
+		
+		/**
+		 * Build a string buffer representation of the contents of the tree rooted
+		 * at n, prepending each file name with prefix, and adding and an additional
+		 * prefix for subdirectory contents. Update this string whenever the 
+		 * Directory or its children get updated. 
+		 */
+		private void updateString(){
+			StringBuffer contents = new StringBuffer();
+			this.nodeMap = new HashMap<>();
+			((PhotoSystem) pr).buildDirectoryMap(this.currentDir, contents, ">", this.nodeMap);
+			
+			String[] listcontents = contents.toString().split("\n");
+			DefaultListModel<String> newList = new DefaultListModel<String>();
+			for (String item: listcontents) {
+				newList.addElement(item);
+			}
+			this.folderList.setModel(newList);
+		}
+		
+		/**
+		 * When the user presses this button, return the most commonly used 
+		 * tag in the directory. 
+		 */
+		private void getMostCommonTag(){ 
+			HashMap<Integer, ArrayList<String>> tags = pr.mostCommonTag(this.currentDir);
+			this.textArea.setText("The most commonly used tag is " + tags.toString());
+		}
+	
+		/**
+		 * When the user presses this button, return the most tagged 
+		 * image in the directory. 
+		 */
+		private void getMostTagged(){
+			Image mostTaggedImage = pr.mostTags(this.currentDir);
+			this.textArea.setText("The image with the most tags is " + mostTaggedImage.getName());
+		}
+		
+		/**
+		 * Search for the images containing the tag that is inputed by the 
+		 * user in the text field. If the user does not input anything, 
+		 * Prompt them to input a tag to search. 
+		 */
+		private void searchForImage(){
+			if (!this.tagField.getText().isEmpty()){
+				String tag = this.tagField.getText();
+				ArrayList<Image> imgList;
+				try {
+					imgList = pr.searchImagesbyTag(tag, this.currentDir);
+					this.textArea.setText("The images with this tag are: " + imgList.toString());
+				} catch (IOException e) {
+					this.textArea.setText(e.getMessage());
 				}
 				
-				if (change.startsWith("N")) {
-					String[] oldTonew = (change.split(" : ")[1]).split(" -> ");
-					String old = oldTonew[0];
-					this.chooseOldName(imgNode, old);
-
+			} else{
+				this.textArea.setText("Please input a tag to search");
+			}
+			
+		}
+		
+		/**
+		 * Display the history of changes in the system when button is pressed. 
+		 */
+		private void getHistoryofImages(){ 
+			TreeNode selected = this.currentDir;
+			if (this.selectedNode != null) {
+				selected = this.selectedNode;
+			}
+			StringBuffer history = pr.getHistory(selected);
+			this.textArea.setText("The history of " + selected.toString() + " is : \n" + history.toString());
+		}
+		
+		/**
+		 * Revert the changes up to a specific date, when button is pressed. 
+		 * Make sure the the user inputs a valid index to revert up to. 
+		 */
+		private void revertChanges(){
+			String begin = tagField.getText();
+			if (begin.matches("\\d+")){
+				int start = Integer.parseInt(begin);
+				try {
+					pr.revertChanges((Directory)this.currentDir, start);
+				} catch (TagExistsException e) {
 				}
-				end = end -1;
+				this.getHistoryofImages();
+				this.updateString();
+			}else{
+				this.textArea.setText("Please put in a vaid index that you wish to revert to.");
+			}
+	
+		}
+		
+		/**
+		 * Add a tag to an image. Make sure that the tag is specified by the user
+		 * using the text field, and that it does not already exist.  
+		 * If more than one tag is inputed (using a comma), add all tags to the image. 
+		 */
+		private void addTagtoImage(){
+		
+			String tag = tagField.getText();
+			if (tag.trim().isEmpty()){
+				this.textArea.setText("Please input a tag to be added.");
+			} else {
+			if(tag.contains(",")){
+				this.addManyTags(tag);
+			}else{
+				this.addSingleTag(tag);
 			}
 		}
-	}
-
-	/**
-	 * Get the most common tag
-	 * @param dir
-	 * @return the most common tag
-	 */
-	public  HashMap<Integer, ArrayList<String>> mostCommonTag(Directory dir){
-		return dir.mostCommonTag();
-	} 
-	
-	/**
-	 * Get the time log of this directory 
-	 * @param dir
-	 * @return the most common tag
-	 */
-	public  StringBuffer getHistory(TreeNode dir) {
-		return dir.getHistory();
+		}
+		
+		/**
+		 * Add one tag to the selected image
+		 * @param tag
+		 */
+		private void addSingleTag(String tag) {
+			try{
+				pr.addImageTag((Image)this.selectedNode, tag.trim(), this.currentDir);
+				this.imageLabel.setText(this.selectedNode.getName()); 
+				this.textArea.setText("Tag " + tag + "added." );
+				updateString();
+			} catch (TagExistsException e){
+				this.textArea.setText(e.getMessage());
+			}
+			
 		}
 
-	/**
-	 * Allow the user to choose from old names
-	 * @param img
-	 * 			The image we are editing
-	 * @param dir
-	 * 			The directory the image belongs to
-	 */
-	public  void chooseOldName(Image img, String name) {
-		try{
-			String path = img.filePath;
-			
-			img.chooseFromOldName(name);
-			
-			String newPath = img.filePath;
-			
-			this.pathToNode.remove(path);
-			this.pathToNode.put(newPath, img);
-			this.pathToNode.put(img.parent.filePath, img.parent);
-			
-			this.saveMapToFile(logFile.getPath());
-			
-		}catch (NonExistentNameException e){
-			System.out.println(e.getMessage());
-		}
-	}
-	
-	/**
-	 * Return the extension of the file/node it it's an image
-	 * @param name
-	 * 			The name of the image
-	 * @return The image's extension or null if this file is not an image
-	 */
-	private static  String fileIsImage(String name) {
-		String[] allowedExtensions = {".jpg", ".gif", ".svg", ".jpeg", ".png", ".tiff", ".bmp", ".JPG"};
-		for (String suff: allowedExtensions) {
-			if (name.endsWith(suff)) {
-				return suff;
+
+		/**
+		 * Add many tags to the selected image
+		 * @param tag
+		 */
+		private void addManyTags(String tag) {
+			String[] list = tag.split(",");
+			try {
+				pr.addManyTags(list, (Image)this.selectedNode, this.currentDir);
+				this.imageLabel.setText(this.selectedNode.getName()); 
+				this.textArea.setText("Tags " + list.toString() + "added." );
+				updateString();
+			} catch (TagExistsException e) {
+				this.textArea.setText(e.getMessage());
 			}
 		}
-		return null;
-	}
-	
-	/**
-	 * Return all the nodes in this image Tree 
-	 * @param fileNode
-	 * 				The root of the tree
-	 * @param contents
-	 * 				The String Buffer we are concatenating to
-	 * @param prefix
-	 * 				The prefix to append to
-	 */
-	public  void buildDirectoryContents(TreeNode fileNode, StringBuffer contents, String prefix) {
-			
-			// add the initial prefix and root FileNode
-			contents.append(prefix);
-			contents.append(fileNode.getName());
-			// increase the prefix using the static variable DirctoryExplorer.PREFIX
-			prefix = prefix + "--";
-			
-			// iterate though the children of the root node
-			// if it is a file, add it; if it is a directory, recurse though it
-			for (TreeNode child: fileNode.getChildren()){
-				if (child.isImage()){
-					contents.append('\n');  // '\n' character adds new line
-					contents.append(prefix);
-					contents.append(child.getName());
-				} else{
-					contents.append('\n');
-					buildDirectoryContents(child, contents, prefix);
+		/**
+		 * Delete tag from an image. Make sure that the tag is specified by the user
+		 * using the text field, and that it exists.
+		 * If more than one tag is inputed (using a comma), delete all tags from the image. 
+		 * If the user chooses to delete a tag from a directory, delete all instances 
+		 * of the tag found in the directory's images.
+		 */
+		private void deleteTagFromImage(){
+			String tag = tagField.getText();
+			if (tag.isEmpty()) {
+				this.textArea.setText("Please input a tag to be deleted" );
+			}
+			else if (this.selectedNode == null) {
+				pr.deleteFromAllImages(tag.trim(), (Directory) this.currentDir);
+				this.imageLabel.setText(this.currentDir.getName()); 
+				updateString();	
+				
+			} else {
+			if (this.selectedNode.isImage()){
+				if(tag.contains(",")){
+					this.deleteManyTags(tag);
+				}else{
+					this.deleteOneTag(tag);
 				}
-}
-	}
-
-	/**
-	 * Add more than one tag to the given image in the chosen directory
-	 * @param tags
-	 * 			The list of tags
-	 * @param img
-	 * 			The image the tags are to be added to
-	 * @param dir
-	 * 			The directory we are adding tags to 
-	 */
-	public  void addManyTags(String[] tags, Image img, Directory dir) {
-		for (String tag: tags) {
-			addImageTag(img, tag, dir);
+				
+			}else{
+					pr.deleteFromAllImages(tag.trim(), (Directory) this.selectedNode);
+					this.imageLabel.setText(this.selectedNode.getName()); 
+					this.textArea.setText("Tag " + tag + " deleted from all images." );
+			
+			}
+			updateString();	
+			}
 		}
-	}
-    
+		
+		/**
+		 * Delete a single tag
+		 * @param tag
+		 */
+		private void deleteOneTag(String tag) {
+			if (((Image) this.selectedNode).getTags().contains(tag)){
+				pr.deleteImageTag((Image)this.selectedNode, tag.trim(), this.currentDir);
+				this.imageLabel.setText(this.selectedNode.getName()); 
+				this.textArea.setText("Tag " + tag + " deleted." );
+				updateString();
+			} else{
+				this.textArea.setText("Cannot delete a tag that does not exist.");
+			}
+			
+		}
 
- 
+		
+		/**
+		 * Delete many tags from the selected node
+		 * @param tag
+		 */
+		private void deleteManyTags(String tag) {
+			String[] list = tag.split(",");
+			StringBuffer message = new StringBuffer();
+			pr.deleteManyTags(list, (Image)this.selectedNode, this.currentDir, message);
+			this.imageLabel.setText(this.selectedNode.getName()); 
+			this.textArea.setText("Tags " + list.toString() + " deleted." );
+			if (!message.toString().isEmpty()) {
+				this.textArea.setText("The following tags could not be deleted: \n " + message.toString());
+			
+		}
 
-	/**
-	 * Save the structure to the given file
-	 * @param filePath
-	 * 				The filePath of the file we are writing to
-	 * @param toStore
-	 * 				The generic object toStore
-	 */
-	public  void saveMapToFile(String filePath){
-		try {
-	        OutputStream file = new FileOutputStream(filePath);
-	        OutputStream buffer = new BufferedOutputStream(file);
-	        ObjectOutput output = new ObjectOutputStream(buffer);
-	
-	        // serialize the Map
-	        output.writeObject(this.pathToNode);
-	        output.close();
-		 } catch (IOException ex) {
-	          System.out.println("Can't Save");
-	        } 
-    }
-	
-	/**
-	 * Save the structure to the given file
-	 * @param filePath
-	 * 				The filePath of the file we are writing to
-	 * @param toStore
-	 * 				The generic object toStore
-	 */
-	public  void saveTagsToFile(String filePath){
-		try {
-	        OutputStream file = new FileOutputStream(filePath);
-	        OutputStream buffer = new BufferedOutputStream(file);
-	        ObjectOutput output = new ObjectOutputStream(buffer);
-	
-	        // serialize the Map
-	        output.writeObject(this.tagList);
-	        output.close();
-		 } catch (IOException ex) {
-	          System.out.println("Can't Save");
-	        } 
-    }
-	
+		}
+		
+		private void chooseOldName(){
+			String name = this.tagField.getText();
+			try {
+				pr.chooseOldName((Image) this.selectedNode, name);
+				this.imageLabel.setText(this.selectedNode.getName());
+				this.textArea.setText("Name changed to: " +name );
+				updateString();
+			} catch (NonExistentNameException e) {		
+				this.textArea.setText(e.getMessage() + "\n" + "Previous image names are: " + ((Image) this.selectedNode).getPreviousNames());
+			}
+		}
+		
+		private void displayWelcomeMessage() {
+		String message  = "Welcome to PhotoRenamer! Here are some tips \n \n"
+				+ "Choose a Directory \n \n"
+				+ "Add One Tag: Select an image and add your tag. \n \t e.g. Tag <image.jpg>  with 'Vacation' --> 'image @Vacation.jpg' \n \n"
+				+ "Add Many Tags: Seperate your tags by COMMAS (,) \n \t e.g. Tag <image.jpg> with 'Vacation, July, Sunset'--> 'image @Vacation @July @Sunset.jpg' \n \n"
+				+ "Delete One Tag: Delete a specified tag that already exists from \n \t (a) An image \n \t (b) All the images under a selected Directory \n \n"
+				+ "Delete Many Tags: Seperate the tags with COMMAS (,)  \n \n"
+				+ "Get History: See all the changes that you have made \n \n"
+				+ "Revert Changes: After looking at the history, select a point to which you want to revert to \n \n"
+				+ "Search Image: Search Images by the specified tag in the current Directory \n \n " 
+				+ "Get Most Common Tag: Search through the selected Directory for the most commonly used tag \n \n"
+				+ "Get Image with Most Tags: \n \tFind out which of your images has the most tags! \n \n"
+				+ "Choose From Old Name: Input an old name you would want to choose from and rename the selected image to a previous name";
+				this.textArea.setText(message);
+		}
+		
+		/**
+		 * Create the GUI, combining all it's elements.
+		 * Influenced from Week 11 Lab. 
+		 */
+		private void createAndShowGui() {
+			photoRenamer.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+			photoRenamer.pack();
+			photoRenamer.setVisible(true);
+		}
 
-	@SuppressWarnings({ "unchecked" })
-	public void readLogsFromFile(String path) throws ClassNotFoundException {
-        try {
-            InputStream file = new FileInputStream(path);
-            InputStream buffer = new BufferedInputStream(file);
-            ObjectInput input = new ObjectInputStream(buffer);
-            
-            this.pathToNode = (HashMap<String, TreeNode>) input.readObject();
-            
-            input.close();
-        } catch (IOException ex) {
-          
-        }  
-        
+		/**
+		 * Create and show an image explorer, which the user can then  
+		 * work with.
+		 *
+		 * @param argsv
+		 *            the command-line arguments.
+		 */
+		public static void main(String[] args) {
+			PhotoRenamer v = new PhotoRenamer();
+			v.createAndShowGui();
+			
+		}	
+
 	}
-	
-	@SuppressWarnings({ "unchecked" })
-	public void readFromTagsFile(String path) throws ClassNotFoundException {
-        try {
-            InputStream file = new FileInputStream(path);
-            InputStream buffer = new BufferedInputStream(file);
-            ObjectInput input = new ObjectInputStream(buffer);
-            
-            this.tagList = (ArrayList<String>) input.readObject();
-            
-            input.close();
-        } catch (IOException ex) {
-          
-        }  
-        
-	}
-	public HashMap<String, TreeNode> getPathToNode() {
-		return this.pathToNode;
-	}
-}
+
 

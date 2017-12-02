@@ -1,4 +1,4 @@
-package a2;
+package photo_renamer;
 
 public class NonExistentNameException extends Exception {
 	

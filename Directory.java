@@ -1,6 +1,7 @@
-package a2;
+package photo_renamer;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -13,11 +14,6 @@ public class Directory extends TreeNode {
 	 */
 	private static final long serialVersionUID = 6204516908066748633L;
 	private  HashMap<String,ArrayList<Image>> listofTags; 
-	
-	public Directory(File file, String name, FileType type, TreeNode parent, ArrayList<String[]> nameLogs, HashMap<String, TreeNode> children, HashMap<String, ArrayList<Image>> tagsToImages) {
-		super(file, name, type, parent, nameLogs, children);
-		this.listofTags = tagsToImages;
-	}
 	
 	public Directory(File file, String name, FileType type, TreeNode curr) {
 		super(file, name, type, curr, new HashMap<String, TreeNode>());
@@ -36,6 +32,19 @@ public class Directory extends TreeNode {
 	 */
 	public void setListofTags(HashMap<String, ArrayList<Image>> listofTags) {
 		this.listofTags = listofTags;
+	}
+	
+	/**
+	 * Find the imageNode with the given original name and parent path for the use of the reversions
+	 * @param name
+	 * 			Name of the image
+	 * @param parentPath
+	 * 			Parent path of the image
+	 * @return The Image Node or null
+	 */
+	public TreeNode findChildReverted(String name, String parentPath) {
+		return findChildNodeHelper(name, this, parentPath);
+		
 	}
 	
 	/**
@@ -72,13 +81,12 @@ public class Directory extends TreeNode {
 				if ((curr.getParent() == null) && (parent == null)) {
 					return curr;
 				} else {
-					String parentPath = parent.file.getPath();
-					String currPath = curr.getParent().file.getPath();
+					String parentPath = parent.getFile().getPath();
+					String currPath = curr.getParent().getFile().getPath();
 					if (parentPath.equals(currPath))  {
 						return curr;
 					}
 				}
-					
 			}else {
 				if (!curr.isImage()) {
 					Collection<TreeNode> currChildren = curr.getChildren();
@@ -96,19 +104,6 @@ public class Directory extends TreeNode {
 			return result;
 			
 		}
-	
-	/**
-	 * Find the current imageNode with the given name and parent path for the use of the reversions
-	 * @param name
-	 * 			Name of the image
-	 * @param parentPath
-	 * 			Parent path of the image
-	 * @return The Image Node or null
-	 */
-	public TreeNode findChildReverted(String name, String parentPath) {
-		return findChildNodeHelper(name, this, parentPath);
-		
-	}
 
 	/**
 	 * Reversion helper function
@@ -134,7 +129,7 @@ public class Directory extends TreeNode {
 				if ((curr.getParent() == null) && (parentPath.equals(""))) {
 					return curr;
 				} else {
-					String currPath = curr.getParent().file.getPath();
+					String currPath = curr.getParent().getFilePath();
 					if (parentPath.equals(currPath))  {
 						return curr;
 					}
@@ -143,7 +138,7 @@ public class Directory extends TreeNode {
 				if (!curr.isImage()) {
 					Collection<TreeNode> currChildren = curr.getChildren();
 					for (TreeNode child: currChildren){
-						result = findChildNodeHelper(name, child, child.getParent().file.getPath());
+						result = findChildNodeHelper(name, child, child.getParent().getFilePath());
 						if (result != null) {
 							return result;
 							}
@@ -166,21 +161,21 @@ public class Directory extends TreeNode {
 		if ( parent != null) {
 			parent.addImageTag(img, tag);
 		}
-			ArrayList<Image> images = new ArrayList<>();
-			if (this.listofTags.containsKey(tag)) {
-				images = this.listofTags.get(tag);
-			}
-			images.add(img);
-			this.listofTags.put(tag,images);
+		ArrayList<Image> images = new ArrayList<>();
+		if (this.listofTags.containsKey(tag)) {
+			images = this.listofTags.get(tag);
+		}
+		images.add(img);
+		this.listofTags.put(tag,images);
 	}
 	
 	/**
-	 * Delete the image tag to the list of tags and to all of the parents 
+	 * Delete the image tag from the list of tags and from all of the parents 
 	 * @param img
 	 * @param tag
 	 */
 	public void deleteImageTag(Image img, String tag) {
-		// Tags are shown on the screen
+		
 		Directory parent = (Directory) this.getParent();
 		if ( parent != null) {
 			parent.deleteImageTag(img,tag);
@@ -203,10 +198,16 @@ public class Directory extends TreeNode {
 	/**
 	 * Search the images by tag
 	 * @param tag
+	 * @throws IOException 
 	 */
-	public  ArrayList<Image> searchImagesbyTag(String tag) {
+	public  ArrayList<Image> searchImagesbyTag(String tag) throws IOException {
 		// Search image files based on tags
-		return this.listofTags.get(tag);
+		if (this.listofTags.containsKey(tag)){ 
+			return this.listofTags.get(tag);
+		}else{
+			throw new IOException("No image contrains this tag");
+		}
+
 		
 	}
 	
@@ -215,10 +216,13 @@ public class Directory extends TreeNode {
 	 * @return Number of tags to tag names
 	 */
 	public  HashMap<Integer, ArrayList<String>> mostCommonTag(){
+		// Get all the tags used in this directory
 		Set<String> tags = this.listofTags.keySet();
 		int max = 0;
 		HashMap <Integer, ArrayList<String>> countofTags = new HashMap <Integer, ArrayList<String>>();
 		ArrayList<String> mostTags = new ArrayList<String>();
+		
+		// Find the tag with the largest list of images
 		for (String thisTag: tags) {
 			int size = this.listofTags.get(thisTag).size();
 			if (size>max){
@@ -235,6 +239,4 @@ public class Directory extends TreeNode {
 		countofTags.put(max, mostTags);
 		return countofTags;
 	} 
-	
-	
 }

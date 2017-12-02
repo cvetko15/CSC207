@@ -1,4 +1,4 @@
-package a2;
+package photo_renamer;
 
 import java.io.File;
 import java.io.Serializable;
@@ -7,37 +7,52 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
-
+/**
+ * The TreeNode class represents either an Image or Directory file and implements Serializable to keep track of previously managed nodes.
+ */
 public class TreeNode implements Serializable{
 
-
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1137056245318029932L;
+	/**
+	 * The current name of this node
+	 */
 	private String name; 
+	/**
+	 * Either an image or a directory
+	 */
 	private FileType type;
-	protected String filePath;
+	/**
+	 * The current Filepath 
+	 */
+	private String filePath;
+	/**
+	 * The parent Node (= null for the root directory)
+	 */
 	protected TreeNode parent; 
-	protected Map<String, TreeNode> children;
-	protected File file;	
+	/**
+	 * Children of the TreeNode with paths representing the keys
+	 */
+	private Map<String, TreeNode> children;
+	/**
+	 * The file this TreeNode is tied to
+	 */
+	private File file;	
+	/**
+	 * The history of changes made to this TreeNode and all its children
+	 */
 	protected ArrayList<String[]> nameLog;
 	
-	public TreeNode(File file, String name, FileType type, TreeNode parent, ArrayList<String[]> nameLogs, HashMap<String, TreeNode> children) {
-		// For deserialized images
-		this.name = name;
-		this.type = type;
-		this.parent = parent;
-		this.children = children;
-		this.file = file;
-		this.nameLog = nameLogs;
-		this.filePath = file.getPath();
-		
-	}
-	
+	/**
+	 * Initialize the TreeNode object
+	 * @param file
+	 * @param name
+	 * @param type
+	 * @param parent
+	 * @param children
+	 */
 	public TreeNode(File file, String name, FileType type, TreeNode parent, HashMap<String,TreeNode> children) {
-		// For freshly created TreeNodes
 		this.name = name;
 		this.type = type;
 		this.parent = parent;
@@ -53,6 +68,55 @@ public class TreeNode implements Serializable{
 	 */
 	public String getName() {
 		return name;
+	}
+	
+	/**
+	 * Get the name log of this TreeNode
+	 * @return this TreeNode's log
+	 */
+	
+	public ArrayList<String[]> getNameLog() {
+		return nameLog;
+	}
+	
+	/**
+	 * Set the name log of this TreeNode
+	 * @param new  nameLog
+	 */
+	public void setNameLog(ArrayList<String[]> nameLog) {
+		this.nameLog = nameLog;
+	}
+	
+	/**
+	 * Get the File of this TreeNode
+	 * @return this TreeNode's File
+	 */
+	public File getFile() {
+		return file;
+	}
+
+	/**
+	 * Set the File this TreeNode represents 
+	 * @param the new File
+	 */
+	public void setFile(File file) {
+		this.file = file;
+	}
+	
+	/**
+	 * Get the filePath of this TreeNode
+	 * @return this TreeNode's filePath
+	 */
+	public String getFilePath() {
+		return filePath;
+	}
+	
+	/**
+	 * Set the filePath of this TreeNode
+	 * @param the new filePath
+	 */
+	public void setFilePath(String filePath) {
+		this.filePath = filePath;
 	}
 
 	/**
@@ -76,7 +140,7 @@ public class TreeNode implements Serializable{
 	 * Set the parent of this TreeNode
 	 * @return the parent of this TreeNode
 	 */
-	public void setParent(Directory parent) {
+	public void setParent(TreeNode parent) {
 		this.parent = parent;
 	}
 
@@ -85,7 +149,17 @@ public class TreeNode implements Serializable{
 	 * @return the parent of this TreeNode
 	 */
 	public Collection<TreeNode> getChildren() {
-		return this.children.values();
+		return this.children.values();		
+	}
+	
+	/**
+	 * Get the children of this TreeNode, Path to image
+	 * @return the parent of this TreeNode
+	 */
+	public Set<String> getPathChildren() {
+		return this.children.keySet();
+		
+		
 	}
 	
 	/**
@@ -95,6 +169,7 @@ public class TreeNode implements Serializable{
 	 */
 	public void addChild(String path, TreeNode childNode) {
 		this.children.put(path, childNode);
+		childNode.setParent(this);
 	}
 	
 	/**
@@ -105,19 +180,14 @@ public class TreeNode implements Serializable{
 		return this.type == FileType.IMAGE;
 	}
 	
+	/**
+	 * Returns a string representation of this TreeNode
+	 * @return The TreeNode's name
+	 */
 	@Override
 	public String toString(){
 		return name;
 	}
-	
-	/**
-	 * Get the name log of this image
-	 * @return this TreeNode's image
-	 */
-	public ArrayList<String[]> getnameLog() {
-		return nameLog;
-	}
-	
 		
 	/**
 	 * Add the time stamp to this TreeNode and all its parents 
@@ -133,14 +203,15 @@ public class TreeNode implements Serializable{
 			this.parent.putTimestamp(name, changeDescription);
 		} else {
 			thisChange = new String[] {LocalDateTime.now().toString(), name, changeDescription, "" };
+			this.nameLog.add(thisChange);
 		}
-		this.nameLog.add(thisChange);	
+			
 		
 	}
 	
 	/**
-	 * Get String History of the TreeNode
-	 * @return the history of the TreeNode as a String
+	 * Get the formatted String Buffer representation of this TreeNode's nameLog
+	 * @return the history of the TreeNode as a StringBuffer
 	 */
 	public StringBuffer getHistory(){
 		Integer index = 0;
